@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic
+  namespace: devops
+  labels:
+    app: petclinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      containers:
+      - name: petclinic
+        image: registry.arkeyva.com/spring-petclinic:latest
+        ports:
+        - containerPort: 8080
+      imagePullSecrets:
+      - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic
+  namespace: devops
+spec:
+  type: ClusterIP
+  selector:
+    app: petclinic
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+  generation: 1
+  labels:
+    app.kubernetes.io/group: arkeyva
+  name: petclinic
+  namespace: devops
+spec:
+  entryPoints:
+  - websecure
+  - web
+  routes:
+  - kind: Rule
+    match: Host(`petclinic.arkeyva.com`)
+    middlewares:
+    - name: petclinic-host-header
+    priority: 10
+    services:
+    - name: petclinic
+      port: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/group: arkeyva
+  name: petclinic-host-header
+  namespace: devops
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Port: "443"
+      X-Forwarded-Proto: https
+      X-Script-Name: petclinic.arkeyva.com
+    customResponseHeaders:
+      X-Custom-Response-Header: petclinic.arkeyva.com
